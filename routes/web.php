@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\InviteeController;
+use App\Http\Controllers\AdminManagerController;
+use App\Http\Controllers\OwnerAdminController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Invitee;
 use Illuminate\Support\Facades\Route;
@@ -23,18 +25,45 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'verified', 'owner'])->name('dashboard');
+
+Route::middleware(['auth', 'verified', 'owner'])->group(function () {
+    Route::get('/owner/manageadmins', [OwnerAdminController::class, 'index'])
+        ->name('manageadmins');
+
+    Route::post('/owner/manageadmins', [OwnerAdminController::class, 'store'])
+        ->name('owner.admins.store');
+
+    Route::get('/owner/user/{user}/edit', [OwnerAdminController::class, 'edit'])
+        ->name('owner.admins.edit');
+
+    Route::delete('/owner/user/{user}/delete', [OwnerAdminController::class, 'destroy'])
+        ->name('owner.admins.destroy');
+
+    Route::get('/owner/createusers', function () {
+        return view('owner.createusers');
+    })->name('createusers');
+});
+
+Route::get('/superadmin/dashboard', function () {
+    return view('superadmin.dashboard');
+})->middleware(['auth', 'verified'])->name('superadmin.dashboard');
 
 Route::get('admin/dashboard', function () {
     return view('admin.dashboard');
-})->middleware(['auth', 'verified'])->name('admin.dashboard');
+})->middleware(['auth', 'verified', 'admin'])->name('admin.dashboard');
 
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::get('/manage/admin', [ProfileController::class, 'manageAdmin'])->name('admin.manage');
+    Route::get('/manage/admin', [ProfileController::class, 'manageAdmin'])->middleware('admin')->name('admin.manage');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::middleware(['auth', 'verified', 'admin'])->group(function () {
+    Route::get('/manage/managers', [AdminManagerController::class, 'index'])->name('manage.managers');
+    Route::post('/manage/managers', [AdminManagerController::class, 'store'])->name('manage.managers.store');
 });
 
 

@@ -318,13 +318,13 @@
                     
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link" href="{{ route('admin.dashboard') }}">
                                 <i class="fas fa-tachometer-alt"></i>
                                 Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link" href="{{ route('admin.manage') }}">
                                 <i class="fas fa-users-cog"></i>
                                 Manage Admins
                             </a>

@@ -177,37 +177,49 @@
                     
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link active" href="">
+                            <a class="nav-link active" href="{{ route('admin.dashboard') }}">
                                 <i class="fas fa-tachometer-alt"></i>
                                 Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ route('event.index') }}">
+                            <a class="nav-link" href="{{ route('manage.managers') }}">
+                                <i class="fas fa-users-cog"></i>
+                                Managers
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('event.create') ? 'active' : '' }}" href="{{ route('event.create') }}">
+                                <i class="fas fa-calendar-plus"></i>
+                                Create Event
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('event.index') ? 'active' : '' }}" href="{{ route('event.index') }}">
                                 <i class="fas fa-calendar-alt"></i>
                                 My Events
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-user-friends"></i>
-                                Invitees
+                            <a class="nav-link {{ request()->routeIs('invitees.*') ? 'active' : '' }}" href="{{ route('invitee.create') }}">
+                                <i class="fas fa-user-plus"></i>
+                                Add Invitees
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link {{ request()->routeIs('design.*') ? 'active' : '' }}" href="{{ route('design.create') }}">
                                 <i class="fas fa-palette"></i>
-                                Templates
+                                Design Card
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-chart-bar"></i>
-                                Analytics
+                            <a class="nav-link {{ request()->routeIs('send.*') ? 'active' : '' }}" href="{{ route('event.invitation.send') }}">
+                                <i class="fas fa-paper-plane"></i>
+                                Send Invitations
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link {{ request()->routeIs('settings') ? 'active' : '' }}" href="#">
                                 <i class="fas fa-cog"></i>
                                 Settings
                             </a>
@@ -265,7 +277,7 @@
                                 </button>
                                 <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                     <li><a class="dropdown-item" href="{{ route('event.create') }}"><i class="fas fa-calendar-plus me-2"></i>New Event</a></li>
-                                    <li><a class="dropdown-item" href="{{ route('invitee.create') }}"><i class="fas fa-users me-2"></i>Add Invitees</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('invitee.create') }}"><i class="fas fa-users me-2"></i>Add Manager</a></li>
                                     <li><a class="dropdown-item" href="#"><i class="fas fa-palette me-2"></i>Design Template</a></li>
                                 </ul>
                             </div>
@@ -326,7 +338,7 @@
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                            Total Invitees
+                                            Total Managers
                                         </div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">684</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
@@ -348,12 +360,12 @@
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                            Pending RSVPs
+                                            Total Viewers
                                         </div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800">124</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
-                                            <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 12%</span>
-                                            <span>Response rate</span>
+                                            <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 5</span>
+                                            <span>New since last week</span>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -387,7 +399,7 @@
                                                 <div class="d-flex justify-content-between align-items-center mt-3">
                                                     <div>
                                                         <span class="text-muted">Invitees: 245</span>
-                                                        <span class="ms-3 text-muted">RSVPs: 189</span>
+                                                        <span class="ms-3 text-muted">Viewer: 2</span>
                                                     </div>
                                                     <div class="btn-group">
                                                         <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
@@ -409,7 +421,7 @@
                                                 <div class="d-flex justify-content-between align-items-center mt-3">
                                                     <div>
                                                         <span class="text-muted">Invitees: 180</span>
-                                                        <span class="ms-3 text-muted">RSVPs: 92</span>
+                                                        <span class="ms-3 text-muted">Viewer: 3</span>
                                                     </div>
                                                     <div class="btn-group">
                                                         <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
@@ -453,7 +465,7 @@
                                                 <div class="d-flex justify-content-between align-items-center mt-3">
                                                     <div>
                                                         <span class="text-muted">Invitees: 120</span>
-                                                        <span class="ms-3 text-muted">RSVPs: 85</span>
+                                                        <span class="ms-3 text-muted">Viewer: 4</span>
                                                     </div>
                                                     <div class="btn-group">
                                                         <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
@@ -554,7 +566,7 @@
                                         <div class="card bg-gradient-primary text-white h-100">
                                             <div class="card-body">
                                                 <i class="fas fa-user-plus fa-2x mb-3"></i>
-                                                <h5>Add Invitees</h5>
+                                                <h5>Add Manager</h5>
                                                 <p>Import or add guests</p>
                                                 <button class="btn btn-light">Add</button>
                                             </div>

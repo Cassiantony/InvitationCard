@@ -182,7 +182,7 @@
                     
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                            <a class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">
                                 <i class="fas fa-tachometer-alt"></i>
                                 Dashboard
                             </a>
@@ -190,7 +190,7 @@
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('admin.*') ? 'active' : '' }}" href="{{ route('admin.manage') }}">
                                 <i class="fas fa-users-cog"></i>
-                                Manage Admins
+                                Managers
                             </a>
                         </li>
                         <li class="nav-item">
