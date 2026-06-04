@@ -201,7 +201,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('invitees.*') ? 'active' : '' }}" href="{{ route('invitee.create') }}">
+                            <a class="nav-link {{ request()->routeIs('invitee.create', 'event.show') ? 'active' : '' }}" href="{{ route('event.index') }}">
                                 <i class="fas fa-user-plus"></i>
                                 Add Invitees
                             </a>
@@ -230,13 +230,18 @@
                         <div class="dropdown">
                             <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser" data-bs-toggle="dropdown" aria-expanded="false">
                                 <img src="https://via.placeholder.com/40" alt="Admin" class="rounded-circle me-2 user-avatar">
-                                <strong>Admin User</strong>
+                                <strong>{{ Auth::user()->name }}</strong>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser">
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Settings</a></li>
+                                <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="fas fa-user me-2"></i>Profile</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ route('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Sign out</a></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('logout') }}"
+                                       onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Sign out
+                                    </a>
+                                    <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">@csrf</form>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -277,7 +282,7 @@
                                 </button>
                                 <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                     <li><a class="dropdown-item" href="{{ route('event.create') }}"><i class="fas fa-calendar-plus me-2"></i>New Event</a></li>
-                                    <li><a class="dropdown-item" href="{{ route('invitee.create') }}"><i class="fas fa-users me-2"></i>Add Manager</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('manage.managers') }}"><i class="fas fa-users me-2"></i>Add Manager</a></li>
                                     <li><a class="dropdown-item" href="#"><i class="fas fa-palette me-2"></i>Design Template</a></li>
                                 </ul>
                             </div>
@@ -296,9 +301,13 @@
                                         <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                             Total Events
                                         </div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">12</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($totalEvents) }}</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
-                                            <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 2 new</span>
+                                            @if($newEventsSinceLastMonth > 0)
+                                                <span class="text-success me-2"><i class="fas fa-arrow-up"></i> {{ $newEventsSinceLastMonth }} new</span>
+                                            @else
+                                                <span class="text-muted me-2"><i class="fas fa-minus"></i> 0 new</span>
+                                            @endif
                                             <span>Since last month</span>
                                         </div>
                                     </div>
@@ -318,9 +327,13 @@
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                             Active Events
                                         </div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">8</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($activeEvents) }}</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
-                                            <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 1 new</span>
+                                            @if($newActiveEventsSinceLastWeek > 0)
+                                                <span class="text-success me-2"><i class="fas fa-arrow-up"></i> {{ $newActiveEventsSinceLastWeek }} new</span>
+                                            @else
+                                                <span class="text-muted me-2"><i class="fas fa-minus"></i> 0 new</span>
+                                            @endif
                                             <span>Since last week</span>
                                         </div>
                                     </div>
@@ -340,9 +353,13 @@
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                             Total Managers
                                         </div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">684</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($totalManagers) }}</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
-                                            <span class="text-success mr-2"><i class="fas fa-arrow-up"></i> 42 new</span>
+                                            @if($newManagersSinceLastWeek > 0)
+                                                <span class="text-success me-2"><i class="fas fa-arrow-up"></i> {{ $newManagersSinceLastWeek }} new</span>
+                                            @else
+                                                <span class="text-muted me-2"><i class="fas fa-minus"></i> 0 new</span>
+                                            @endif
                                             <span>Since last week</span>
                                         </div>
                                     </div>
@@ -362,10 +379,14 @@
                                         <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
                                             Total Viewers
                                         </div>
-                                        <div class="h5 mb-0 font-weight-bold text-gray-800">124</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ number_format($totalViewers) }}</div>
                                         <div class="mt-2 mb-0 text-muted text-xs">
-                                            <span class="text-danger mr-2"><i class="fas fa-arrow-down"></i> 5</span>
-                                            <span>New since last week</span>
+                                            @if($newViewersSinceLastWeek > 0)
+                                                <span class="text-success me-2"><i class="fas fa-arrow-up"></i> {{ $newViewersSinceLastWeek }} new</span>
+                                            @else
+                                                <span class="text-muted me-2"><i class="fas fa-minus"></i> 0 new</span>
+                                            @endif
+                                            <span>Since last week</span>
                                         </div>
                                     </div>
                                     <div class="col-auto">
@@ -383,98 +404,59 @@
                         <div class="card shadow h-100">
                             <div class="card-header py-3 d-flex justify-content-between align-items-center">
                                 <h6 class="m-0 font-weight-bold text-primary">Recent Events</h6>
-                                <a href="#" class="btn btn-sm btn-primary">View All</a>
+                                <a href="{{ route('event.index') }}" class="btn btn-sm btn-primary">View All</a>
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6 mb-4">
-                                        <div class="card event-card h-100">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <h5 class="card-title">Annual Company Gala</h5>
-                                                    <span class="badge bg-success">Active</span>
-                                                </div>
-                                                <p class="card-text"><i class="fas fa-calendar-day text-primary me-2"></i>15 Dec, 2023 | 7:00 PM</p>
-                                                <p class="card-text"><i class="fas fa-map-marker-alt text-primary me-2"></i>Grand Ballroom, City Center</p>
-                                                <div class="d-flex justify-content-between align-items-center mt-3">
-                                                    <div>
-                                                        <span class="text-muted">Invitees: 245</span>
-                                                        <span class="ms-3 text-muted">Viewer: 2</span>
+                                    @forelse($recentEvents as $item)
+                                        @php
+                                            $event = $item['event'];
+                                            $eventDate = $event->date ? \Illuminate\Support\Carbon::parse($event->date) : null;
+                                        @endphp
+                                        <div class="col-md-6 mb-4">
+                                            <div class="card event-card h-100">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                                        <h5 class="card-title mb-0">{{ $event->title }}</h5>
+                                                        <span class="badge {{ $item['status_class'] }}">{{ $item['status_label'] }}</span>
                                                     </div>
-                                                    <div class="btn-group">
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-4">
-                                        <div class="card event-card h-100">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <h5 class="card-title">Product Launch</h5>
-                                                    <span class="badge bg-warning">Upcoming</span>
-                                                </div>
-                                                <p class="card-text"><i class="fas fa-calendar-day text-primary me-2"></i>10 Jan, 2024 | 2:00 PM</p>
-                                                <p class="card-text"><i class="fas fa-map-marker-alt text-primary me-2"></i>Convention Center</p>
-                                                <div class="d-flex justify-content-between align-items-center mt-3">
-                                                    <div>
-                                                        <span class="text-muted">Invitees: 180</span>
-                                                        <span class="ms-3 text-muted">Viewer: 3</span>
-                                                    </div>
-                                                    <div class="btn-group">
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6 mb-4">
-                                        <div class="card event-card h-100">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <h5 class="card-title">Team Building Workshop</h5>
-                                                    <span class="badge bg-danger">Completed</span>
-                                                </div>
-                                                <p class="card-text"><i class="fas fa-calendar-day text-primary me-2"></i>05 Nov, 2023 | 9:00 AM</p>
-                                                <p class="card-text"><i class="fas fa-map-marker-alt text-primary me-2"></i>Corporate Office</p>
-                                                <div class="d-flex justify-content-between align-items-center mt-3">
-                                                    <div>
-                                                        <span class="text-muted">Invitees: 75</span>
-                                                        <span class="ms-3 text-muted">Attended: 68</span>
-                                                    </div>
-                                                    <div class="btn-group">
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-chart-bar"></i></button>
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></button>
+                                                    @if($event->category)
+                                                        <span class="badge bg-light text-dark border mt-2">{{ ucfirst($event->category) }}</span>
+                                                    @endif
+                                                    <p class="card-text mt-2 mb-1">
+                                                        <i class="fas fa-calendar-day text-primary me-2"></i>
+                                                        {{ $eventDate ? $eventDate->format('d M, Y | g:i A') : 'Date not set' }}
+                                                    </p>
+                                                    <p class="card-text mb-1">
+                                                        <i class="fas fa-map-marker-alt text-primary me-2"></i>{{ $event->location ?: '—' }}
+                                                    </p>
+                                                    <p class="card-text mb-0 small text-muted">
+                                                        <i class="fas fa-user text-primary me-2"></i>
+                                                        {{ $event->user?->name ?? $event->organizer_name ?? '—' }}
+                                                    </p>
+                                                    <div class="d-flex justify-content-between align-items-center mt-3">
+                                                        <div>
+                                                            <span class="text-muted">Invitees: {{ $event->invitees_count }}</span>
+                                                            @if($item['is_completed'])
+                                                                <span class="ms-3 text-muted">Confirmed: {{ $item['confirmed_count'] }}</span>
+                                                            @else
+                                                                <span class="ms-3 text-muted">Viewers: {{ $item['viewers_count'] }}</span>
+                                                            @endif
+                                                        </div>
+                                                        <div class="btn-group">
+                                                            <a href="{{ route('event.edit', $event->id) }}" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fas fa-edit"></i></a>
+                                                            <a href="{{ route('event.show', $event->id) }}" class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i></a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div class="col-md-6 mb-4">
-                                        <div class="card event-card h-100">
-                                            <div class="card-body">
-                                                <div class="d-flex justify-content-between">
-                                                    <h5 class="card-title">Client Appreciation Dinner</h5>
-                                                    <span class="badge bg-success">Active</span>
-                                                </div>
-                                                <p class="card-text"><i class="fas fa-calendar-day text-primary me-2"></i>22 Dec, 2023 | 6:30 PM</p>
-                                                <p class="card-text"><i class="fas fa-map-marker-alt text-primary me-2"></i>Luxury Restaurant</p>
-                                                <div class="d-flex justify-content-between align-items-center mt-3">
-                                                    <div>
-                                                        <span class="text-muted">Invitees: 120</span>
-                                                        <span class="ms-3 text-muted">Viewer: 4</span>
-                                                    </div>
-                                                    <div class="btn-group">
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></button>
-                                                        <button class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                    @empty
+                                        <div class="col-12 text-center text-muted py-4">
+                                            <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                                            <p class="mb-0">No events yet. <a href="{{ route('event.create') }}">Create your first event</a>.</p>
                                         </div>
-                                    </div>
+                                    @endforelse
                                 </div>
                             </div>
                         </div>
@@ -487,56 +469,34 @@
                                 <h6 class="m-0 font-weight-bold text-primary">RSVP Status</h6>
                             </div>
                             <div class="card-body">
-                                <div class="mb-4">
-                                    <h6 class="small font-weight-bold">Annual Company Gala <span class="float-end">75%</span></h6>
-                                    <div class="progress mb-3">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 75%"></div>
+                                @forelse($rsvpEvents as $rsvp)
+                                    <div class="mb-4">
+                                        <h6 class="small font-weight-bold">{{ $rsvp['title'] }} <span class="float-end">{{ $rsvp['percent'] }}%</span></h6>
+                                        <div class="progress mb-3">
+                                            <div class="progress-bar {{ $rsvp['bar_class'] }}" role="progressbar" style="width: {{ $rsvp['percent'] }}%" aria-valuenow="{{ $rsvp['percent'] }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="mb-4">
-                                    <h6 class="small font-weight-bold">Product Launch <span class="float-end">50%</span></h6>
-                                    <div class="progress mb-3">
-                                        <div class="progress-bar bg-warning" role="progressbar" style="width: 50%"></div>
-                                    </div>
-                                </div>
-                                <div class="mb-4">
-                                    <h6 class="small font-weight-bold">Client Dinner <span class="float-end">65%</span></h6>
-                                    <div class="progress mb-3">
-                                        <div class="progress-bar bg-info" role="progressbar" style="width: 65%"></div>
-                                    </div>
-                                </div>
-                                
+                                @empty
+                                    <p class="text-muted small mb-0">No upcoming events with invitees yet.</p>
+                                @endforelse
+
                                 <hr>
-                                
+
                                 <h6 class="font-weight-bold mt-4">Recent Activity</h6>
                                 <div class="mt-3">
-                                    <div class="d-flex align-items-start mb-3">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-user-check text-success"></i>
+                                    @forelse($recentActivity as $activity)
+                                        <div class="d-flex align-items-start mb-3">
+                                            <div class="flex-shrink-0">
+                                                <i class="fas {{ $activity['icon'] }} {{ $activity['icon_class'] }}"></i>
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <p class="mb-0">{{ $activity['message'] }}</p>
+                                                <small class="text-muted">{{ $activity['time'] }}</small>
+                                            </div>
                                         </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <p class="mb-0">John Smith accepted invitation to Company Gala</p>
-                                            <small class="text-muted">2 hours ago</small>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-start mb-3">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-user-times text-danger"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <p class="mb-0">Sarah Johnson declined Product Launch invitation</p>
-                                            <small class="text-muted">5 hours ago</small>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-start mb-3">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-envelope text-primary"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <p class="mb-0">Invitations sent to 25 new contacts</p>
-                                            <small class="text-muted">Yesterday</small>
-                                        </div>
-                                    </div>
+                                    @empty
+                                        <p class="text-muted small mb-0">No recent invitee activity.</p>
+                                    @endforelse
                                 </div>
                             </div>
                         </div>
@@ -558,7 +518,7 @@
                                                 <i class="fas fa-calendar-plus fa-2x mb-3"></i>
                                                 <h5>Create Event</h5>
                                                 <p>Set up a new event</p>
-                                                <button class="btn btn-light">Create</button>
+                                                <a href="{{ route('event.create') }}" class="btn btn-light">Create</a>
                                             </div>
                                         </div>
                                     </div>
@@ -567,8 +527,8 @@
                                             <div class="card-body">
                                                 <i class="fas fa-user-plus fa-2x mb-3"></i>
                                                 <h5>Add Manager</h5>
-                                                <p>Import or add guests</p>
-                                                <button class="btn btn-light">Add</button>
+                                                <p>Manage event managers</p>
+                                                <a href="{{ route('manage.managers') }}" class="btn btn-light">Add</a>
                                             </div>
                                         </div>
                                     </div>
@@ -578,7 +538,7 @@
                                                 <i class="fas fa-palette fa-2x mb-3"></i>
                                                 <h5>Design Card</h5>
                                                 <p>Customize invitation</p>
-                                                <button class="btn btn-light">Design</button>
+                                                <a href="{{ route('event.invitation.card-upload') }}" class="btn btn-light">Design</a>
                                             </div>
                                         </div>
                                     </div>
@@ -586,9 +546,9 @@
                                         <div class="card bg-gradient-primary text-white h-100">
                                             <div class="card-body">
                                                 <i class="fas fa-file-export fa-2x mb-3"></i>
-                                                <h5>Export Data</h5>
-                                                <p>Download reports</p>
-                                                <button class="btn btn-light">Export</button>
+                                                <h5>Send Invitations</h5>
+                                                <p>Email or deliver cards</p>
+                                                <a href="{{ route('event.invitation.send') }}" class="btn btn-light">Send</a>
                                             </div>
                                         </div>
                                     </div>

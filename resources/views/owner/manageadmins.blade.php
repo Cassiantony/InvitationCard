@@ -373,8 +373,8 @@
                 <div class="col-md-4">
                     <div class="admin-card p-3 p-md-4 d-flex align-items-center justify-content-between">
                         <div>
-                            <p class="text-slate-400 mb-1">Super Admins</p>
-                            <h2 class="text-white fw-bold">{{ $superAdminCount }}</h2>
+                            <p class="text-slate-400 mb-1">Owners</p>
+                            <h2 class="text-white fw-bold">{{ $ownerCount }}</h2>
                         </div>
                         <i class="fas fa-crown fa-3x text-warning opacity-50"></i>
                     </div>
@@ -413,10 +413,10 @@
                                     $secondSource = $nameParts[1] ?? ($admin->name[1] ?? '');
                                     $secondInitial = strtoupper(substr($secondSource, 0, 1));
                                     $initials = trim($firstInitial . $secondInitial);
-                                    $roleClass = match ($admin->role) {
-                                        'Super Admin' => 'role-super',
-                                        'Admin' => 'role-admin',
-                                        'Manager' => 'role-manager',
+                                    $roleClass = match ($admin->normalizedRole()) {
+                                        'owner' => 'role-super',
+                                        'admin' => 'role-admin',
+                                        'manager' => 'role-manager',
                                         default => 'role-viewer',
                                     };
                                     $isOnline = !is_null($admin->last_seen_at) && $admin->last_seen_at->greaterThanOrEqualTo(now()->subMinutes($onlineWindowMinutes));
@@ -430,7 +430,7 @@
                                     </td>
                                     <td data-label="Email">{{ $admin->email }}</td>
                                     <td data-label="Role">
-                                        <span class="badge-role {{ $roleClass }}">{{ $admin->role }}</span>
+                                        <span class="badge-role {{ $roleClass }}">{{ $admin->roleLabel() }}</span>
                                     </td>
                                     <td data-label="Status">
                                         <span class="badge status-badge px-3 py-1 rounded-pill {{ $isOnline ? '' : 'bg-secondary border-0 text-light' }}">
@@ -502,11 +502,9 @@
                     <div class="mb-3">
                         <label class="form-label text-light">Role</label>
                         <select name="role" class="form-select form-control-dark" id="adminRole">
-                        <option value="Super Admin" {{ old('role') === 'owner' ? 'selected' : '' }}>Owner</option>
-                            <option value="Super Admin" {{ old('role') === 'Super Admin' ? 'selected' : '' }}>Super Admin (Full Access)</option>
-                            <option value="Admin" {{ old('role', 'Admin') === 'Admin' ? 'selected' : '' }}>Admin (Standard)</option>
-                            <option value="Manager" {{ old('role') === 'Manager' ? 'selected' : '' }}>Manager (Event Management)</option>
-                            <option value="Viewer" {{ old('role') === 'Viewer' ? 'selected' : '' }}>Viewer (Read-only)</option>
+                            <option value="admin" {{ old('role', 'admin') === 'admin' ? 'selected' : '' }}>Admin</option>
+                            <option value="manager" {{ old('role') === 'manager' ? 'selected' : '' }}>Manager</option>
+                            <option value="viewer" {{ old('role') === 'viewer' ? 'selected' : '' }}>Viewer (read-only)</option>
                         </select>
                     </div>
 

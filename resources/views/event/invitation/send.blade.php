@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Send Invitations - Invitation System</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -263,12 +264,7 @@
                                 My Events
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('invitee.create') }}">
-                                <i class="fas fa-user-friends"></i>
-                                Invitees
-                            </a>
-                        </li>
+                        
                         <li class="nav-item">
                             <a class="nav-link active" href="">
                                 <i class="fas fa-paper-plane"></i>
@@ -350,10 +346,11 @@
                                         <label for="event-select" class="form-label">Select Event</label>
                                         <select class="form-select" id="event-select">
                                             <option value="">Choose an event</option>
-                                            <option value="1" selected>Annual Company Gala (15 Dec, 2023)</option>
-                                            <option value="2">Product Launch Event (10 Jan, 2024)</option>
-                                            <option value="3">Client Appreciation Dinner (22 Dec, 2023)</option>
-                                            <option value="4">Team Building Workshop (05 Nov, 2023)</option>
+                                            @foreach($events as $event)
+                                                <option value="{{ $event->id }}" {{ $selectedEvent && $selectedEvent->id === $event->id ? 'selected' : '' }}>
+                                                    {{ $event->title }} ({{ $event->date->format('M j, Y') }})
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
                                     <div class="col-md-6">
@@ -402,6 +399,57 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="card shadow mb-4">
+                            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="m-0 font-weight-bold text-primary">
+                                    <i class="fas fa-file-pdf me-2 text-danger"></i>Invitation card (PDF)
+                                </h6>
+                                @if($selectedEvent)
+                                    <span class="badge {{ $cardDesign ? 'bg-success' : 'bg-warning text-dark' }}" id="card-design-status">
+                                        {{ $cardDesign ? 'Card configured' : 'Not configured' }}
+                                    </span>
+                                @endif
+                            </div>
+                            <div class="card-body">
+                                @if(!$selectedEvent)
+                                    <p class="text-muted mb-0">Select an event above to upload your invitation PDF and choose where each invitee’s QR code appears on page 1.</p>
+                                @else
+                                    @if($cardDesign)
+                                        <div class="alert alert-success mb-3">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>{{ $cardDesign->design_name }}</strong> is saved for this event.
+                                            Each invitee gets their own QR on your PDF when you download or send.
+                                        </div>
+                                    @else
+                                        <div class="alert alert-warning mb-3">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            No invitation PDF yet. Upload your card and place the QR before sending.
+                                        </div>
+                                    @endif
+                                    <p class="text-muted small mb-3">
+                                        Use your own design (Word, Canva, etc.) exported as PDF. You drag the QR placeholder onto page 1;
+                                        the system stamps a unique QR per invitee when invitations are generated.
+                                    </p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <a href="{{ route('event.invitation.card-upload', ['event_id' => $selectedEvent->id, 'return' => 'send']) }}"
+                                           class="btn btn-primary" id="configure-card-btn">
+                                            <i class="fas fa-upload me-1"></i>
+                                            {{ $cardDesign ? 'Edit PDF & QR position' : 'Upload PDF & place QR' }}
+                                        </a>
+                                        @if($cardDesign && $cardDesign->pdf_file_path)
+                                            <a href="{{ asset('storage/' . $cardDesign->pdf_file_path) }}" target="_blank" rel="noopener"
+                                               class="btn btn-outline-secondary">
+                                                <i class="fas fa-eye me-1"></i> View template PDF
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('invitee.create', $selectedEvent->id) }}" class="btn btn-outline-primary">
+                                            <i class="fas fa-user-plus me-1"></i> Add invitees
+                                        </a>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
                         
                         <div class="card shadow mb-4">
                             <div class="card-header py-3">
@@ -410,14 +458,23 @@
                             <div class="card-body">
                                 <div class="invitation-preview">
                                     <div class="preview-header">
-                                        <h4 id="preview-event-title">Annual Company Gala</h4>
-                                        <p class="mb-0" id="preview-event-date">December 15, 2023 at 7:00 PM</p>
+                                        <h4 id="preview-event-title">{{ $selectedEvent?->title ?? 'Select an event' }}</h4>
+                                        <p class="mb-0" id="preview-event-date">
+                                            @if($selectedEvent)
+                                                {{ $selectedEvent->date->format('F j, Y \a\t g:i A') }}
+                                            @else
+                                                Event date will appear here
+                                            @endif
+                                        </p>
                                     </div>
                                     <div class="preview-body">
-                                        <p>You are cordially invited to our Annual Company Gala celebrating another successful year.</p>
-                                        <p><i class="fas fa-map-marker-alt me-2"></i> <strong>Venue:</strong> Grand Ballroom, City Center</p>
-                                        <p><i class="fas fa-user me-2"></i> <strong>Organizer:</strong> ABC Corporation</p>
-                                        <p><i class="fas fa-info-circle me-2"></i> <strong>Dress Code:</strong> Formal Attire</p>
+                                        @if($selectedEvent)
+                                            <p>{{ Str::limit($selectedEvent->description, 200) ?: 'Your uploaded PDF is the visual invitation; this summary is for reference only.' }}</p>
+                                            <p><i class="fas fa-map-marker-alt me-2"></i> <strong>Venue:</strong> {{ $selectedEvent->location }}</p>
+                                            <p><i class="fas fa-user me-2"></i> <strong>Organizer:</strong> {{ $selectedEvent->organizer_name }}</p>
+                                        @else
+                                            <p class="text-muted">Select an event to see details. The actual invitation is your uploaded PDF with a personalized QR code.</p>
+                                        @endif
                                     </div>
                                     <div class="preview-footer">
                                         <p class="mb-1">We look forward to celebrating with you!</p>
@@ -642,28 +699,51 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Sample invitees data
-        const invitees = [
-            { id: 1, name: "John Smith", email: "john.smith@example.com", phone: "+1234567890", hasWhatsApp: true },
-            { id: 2, name: "Sarah Johnson", email: "sarah.j@example.com", phone: "+1234567891", hasWhatsApp: true },
-            { id: 3, name: "Michael Brown", email: "michael.b@example.com", phone: "+1234567892", hasWhatsApp: false },
-            { id: 4, name: "Emily Davis", email: "emily.davis@example.com", phone: "+1234567893", hasWhatsApp: true },
-            { id: 5, name: "Robert Wilson", email: "robert.w@example.com", phone: "+1234567894", hasWhatsApp: true },
-            { id: 6, name: "Jennifer Lee", email: "jennifer.lee@example.com", phone: "+1234567895", hasWhatsApp: false },
-            { id: 7, name: "David Miller", email: "david.m@example.com", phone: "+1234567896", hasWhatsApp: true },
-            { id: 8, name: "Amanda Taylor", email: "amanda.t@example.com", phone: "+1234567897", hasWhatsApp: true }
-        ];
-        
+        const cardUploadBaseUrl = @json(route('event.invitation.card-upload'));
+        const inviteesJsonBase = @json(url('/event'));
+        const inviteeCreateBase = @json(url('event/invitees/create'));
+        let invitees = [];
         const selectedInvitees = new Set();
-        const invitationCost = 10.00; // $10 per invitation
-        const serviceFeeRate = 0.05; // 5% service fee
-        
-        // Initialize the page
+        const invitationCost = 10.00;
+        const serviceFeeRate = 0.05;
+        let currentEventId = @json($selectedEvent?->id);
+
         document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            if (currentEventId) {
+                loadInviteesForEvent(currentEventId);
+            } else {
+                renderInviteesList();
+            }
+            updateCostSummary();
+        });
+
+        async function loadInviteesForEvent(eventId) {
+            const container = document.getElementById('invitees-list');
+            container.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading invitees…</div>';
+            selectedInvitees.clear();
+
+            try {
+                const response = await fetch(`${inviteesJsonBase}/${eventId}/invitees.json`, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                invitees = (data.invitees || []).map(function (inv) {
+                    return {
+                        id: inv.id,
+                        name: inv.name,
+                        email: inv.email,
+                        phone: inv.phone || '',
+                        hasWhatsApp: Boolean(inv.phone)
+                    };
+                });
+            } catch (e) {
+                invitees = [];
+            }
+
             renderInviteesList();
             updateCostSummary();
-            setupEventListeners();
-        });
+        }
         
         // Render the invitees list
         function renderInviteesList() {
@@ -671,11 +751,15 @@
             const totalCount = document.getElementById('total-count');
             
             if (invitees.length === 0) {
+                const addHint = currentEventId
+                    ? `<a href="${inviteeCreateBase}/${currentEventId}" class="btn btn-sm btn-primary mt-2">Add invitees</a>`
+                    : '';
                 container.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-user-friends"></i>
                         <h4>No invitees found</h4>
                         <p>There are no invitees for the selected event.</p>
+                        ${addHint}
                     </div>
                 `;
                 totalCount.textContent = '0';
@@ -712,6 +796,15 @@
         
         // Set up event listeners
         function setupEventListeners() {
+            document.getElementById('event-select').addEventListener('change', function() {
+                const eventId = this.value;
+                if (eventId) {
+                    window.location.href = @json(route('event.invitation.send')) + '?event_id=' + encodeURIComponent(eventId);
+                } else {
+                    window.location.href = @json(route('event.invitation.send'));
+                }
+            });
+
             // Invitee selection
             document.getElementById('invitees-list').addEventListener('click', function(e) {
                 const inviteeItem = e.target.closest('.invitee-item');

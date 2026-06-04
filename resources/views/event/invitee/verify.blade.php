@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>QR Scanner - Invitation System</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -915,6 +916,10 @@
         let currentMethod = 'qr'; // 'qr' or 'sms'
         let countdownTimer = null;
         let countdownSeconds = 300; // 5 minutes
+
+        window.SCAN_LOOKUP_URL = @json($scanLookupUrl ?? '');
+        window.SCAN_CHECKIN_URL = @json($scanCheckInUrl ?? '');
+        window.SCAN_CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         
         // Sample guest data for demonstration
         const guestDatabase = {
@@ -1228,19 +1233,75 @@
             // We don't need to handle it unless we want specific error reporting
         }
         
-        // Process scanned QR code
-        function processScannedCode(code, method) {
-            // Check if code exists in our database
-            const guest = guestDatabase[code];
-            
+        function extractInvitationCode(raw) {
+            const s = String(raw).trim();
+            const m = s.match(/\/invitee\/([A-Za-z0-9_-]+)/);
+            if (m) return m[1];
+            return s;
+        }
+
+        function mapInviteeStatus(s) {
+            if (s === 'confirmed') return 'verified';
+            if (s === 'declined') return 'declined';
+            if (s === 'pending' || s === 'sent') return 'pending';
+            return 'pending';
+        }
+
+        function apiGuestFromInviteePayload(invitee) {
+            const name = invitee.name || 'Guest';
+            const qs = encodeURIComponent(name);
+            return {
+                id: String(invitee.id),
+                name: invitee.name,
+                email: invitee.email || '—',
+                phone: invitee.phone || '—',
+                company: invitee.company || '—',
+                ticketType: invitee.event_title || '—',
+                tableNumber: invitee.invitation_code || '—',
+                seatNumber: invitee.checked_in ? 'Checked in' : 'Not checked in',
+                status: mapInviteeStatus(invitee.status),
+                avatar: 'https://ui-avatars.com/api/?background=4e73df&color=fff&name=' + qs,
+                inviteMethod: 'qr',
+                checked_in: !!invitee.checked_in,
+            };
+        }
+
+        // Process scanned QR code (server lookup when SCAN_LOOKUP_URL is set)
+        async function processScannedCode(code, method) {
+            const normalized = extractInvitationCode(code);
+
+            if (window.SCAN_LOOKUP_URL) {
+                try {
+                    const res = await fetch(window.SCAN_LOOKUP_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': window.SCAN_CSRF,
+                        },
+                        body: JSON.stringify({ code: normalized }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.success) {
+                        showErrorModal(data.message || 'Invitation not found or not allowed.', method);
+                        return;
+                    }
+                    const guest = apiGuestFromInviteePayload(data.invitee);
+                    addToRecentScans(guest, method);
+                    showVerificationModal(guest, method);
+                } catch (e) {
+                    console.error(e);
+                    showErrorModal('Could not verify this code. Try again.', method);
+                }
+                return;
+            }
+
+            const guest = guestDatabase[normalized];
             if (guest) {
-                // Add to recent scans
                 addToRecentScans(guest, method);
-                
-                // Show verification modal
                 showVerificationModal(guest, method);
             } else {
-                // Show error modal
                 showErrorModal('Invalid code. This code is not recognized in our system.', method);
             }
         }
@@ -1349,6 +1410,10 @@
                 
             } else if (guest.status === 'pending') {
                 document.getElementById('verification-pending').style.display = 'block';
+            } else if (guest.status === 'declined') {
+                document.getElementById('verification-failed').style.display = 'block';
+                document.getElementById('failure-reason').textContent =
+                    'This guest declined or is not approved to attend.';
             } else {
                 document.getElementById('verification-failed').style.display = 'block';
                 document.getElementById('failure-reason').textContent = 

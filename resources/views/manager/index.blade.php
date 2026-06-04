@@ -229,7 +229,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('invitees.*') ? 'active' : '' }}" href="{{ route('invitee.create') }}">
+                            <a class="nav-link {{ request()->routeIs('invitee.create', 'event.show') ? 'active' : '' }}" href="{{ route('event.index') }}">
                                 <i class="fas fa-user-plus"></i>
                                 Add Invitees
                             </a>
@@ -347,8 +347,8 @@
                     </button>
                 </div>
                 <div class="card-body p-0">
-                    @if (session('status'))
-                        <div class="alert alert-success m-3">{{ session('status') }}</div>
+                    @if (session('error'))
+                        <div class="alert alert-danger m-3">{{ session('error') }}</div>
                     @endif
                     @if ($errors->any())
                         <div class="alert alert-danger m-3">
@@ -388,7 +388,23 @@
                                         <td data-label="Role"><span class="badge-manager">Manager</span></td>
                                         <td data-label="Phone">{{ $manager->phone ?: '—' }}</td>
                                         <td data-label="Status"><span class="badge bg-success bg-opacity-10 text-success px-3 py-1 rounded-pill"><i class="fas fa-check-circle"></i> Active</span></td>
-                                        <td data-label="Action">—</td>
+                                        <td data-label="Action">
+                                        <div class="btn-group btn-group-sm gap-2 admin-actions">
+                                            <button href="/owner/user/{{ $manager->id }}/edit" disable class="btn btn-outline-warning">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button
+                                                class="btn btn-outline-danger"
+                                                type="button"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteAdminModal"
+                                                data-delete-url="{{ route('manage.managers.destroy', $manager) }}"
+                                                data-admin-name="{{ $manager->name }}"
+                                            >
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </div>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -454,15 +470,45 @@
                             </div>
                         </div>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer bg-light d-flex justify-content-between flex-wrap">
+                    <div class="modal-footer bg-light d-flex justify-content-between flex-wrap">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fas fa-times"></i> Cancel</button>
                 <button type="submit" class="btn btn-primary px-4" id="submitManagerBtn"><i class="fas fa-save me-1"></i> Create Manager</button>
             </div>
+                </form>
+            </div>
+            
         </div>
     </div>
 </div>
+
+
+<div class="modal fade" id="deleteAdminModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-custom">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-user-times me-2 text-danger"></i>Remove manager</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteAdminForm" method="POST" action="">
+                    @csrf
+                    @method('DELETE')
+
+                    <p class="mb-3">
+                        You are removing <strong id="deleteAdminName">this manager</strong>. This cannot be undone.
+                    </p>
+
+                
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger" id="confirmDeleteAdminBtn"><i class="fas fa-trash-alt me-2"></i>Remove manager</button>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -562,6 +608,21 @@
 
         document.getElementById('addManagerModal').addEventListener('show.bs.modal', () => {
             resetModalForm();
+        });
+
+        document.querySelectorAll('[data-bs-target="#deleteAdminModal"]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const form = document.getElementById('deleteAdminForm');
+                const url = btn.getAttribute('data-delete-url');
+                if (form && url) {
+                    form.action = url;
+                }
+                const name = btn.getAttribute('data-admin-name') || 'this manager';
+                const nameEl = document.getElementById('deleteAdminName');
+                if (nameEl) {
+                    nameEl.textContent = name;
+                }
+            });
         });
     });
 </script>

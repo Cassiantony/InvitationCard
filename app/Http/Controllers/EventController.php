@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\CardDesign;
 use App\Models\Invitee;
+use App\Services\InvitationCardPdfComposer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class EventController extends Controller
 {
@@ -137,20 +139,126 @@ public function show($id)
         return redirect()->back()->with('success', 'Event Created Successfully!');
     }
 
-    public function sendInvitation()
+    public function destroyEvent($id)
     {
-        return view('event.invitation.send');
+        $event = Event::where('user_id', auth()->id())->find($id);
+
+        if (! $event) {
+            return redirect()->route('event.index')
+                ->with('error', 'Event not found or you do not have permission to delete it.');
+        }
+
+        $event->delete();
+
+        return redirect()->route('event.index')->with('success', 'Event deleted successfully.');
+    }
+
+    public function sendInvitation(Request $request)
+    {
+        $events = Event::where('user_id', auth()->id())
+            ->orderBy('date', 'desc')
+            ->get();
+
+        $selectedEvent = null;
+        $cardDesign = null;
+
+        if ($request->filled('event_id')) {
+            $selectedEvent = $events->firstWhere('id', (int) $request->query('event_id'));
+
+            if ($selectedEvent) {
+                $cardDesign = CardDesign::where('event_id', $selectedEvent->id)
+                    ->where('is_active', true)
+                    ->where('design_type', 'pdf')
+                    ->orderByDesc('id')
+                    ->first();
+            }
+        }
+
+        return view('event.invitation.send', compact('events', 'selectedEvent', 'cardDesign'));
     }
 
 
-    public function eventCardUpload()
+    public function eventCardUpload(Request $request)
     {
-        return view('event.invitation.card-upload');
+        $events = Event::where('user_id', auth()->id())
+            ->orderBy('date', 'desc')
+            ->get();
+
+        $returnUrl = null;
+        if ($request->filled('return') && $request->query('return') === 'send' && $request->filled('event_id')) {
+            $returnUrl = route('event.invitation.send', ['event_id' => $request->query('event_id')]);
+        }
+
+        return view('event.invitation.card-upload', compact('events', 'returnUrl'));
+    }
+
+    public function inviteesJson(Event $event)
+    {
+        if ((int) $event->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        return response()->json([
+            'invitees' => $event->invitees()
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'phone', 'invitation_code'])
+                ->values(),
+        ]);
+    }
+
+    public function downloadInvitationCard(Event $event, Invitee $invitee, InvitationCardPdfComposer $composer)
+    {
+        if ((int) $event->user_id !== (int) auth()->id()) {
+            abort(403);
+        }
+
+        if ((int) $invitee->event_id !== (int) $event->id) {
+            abort(404);
+        }
+
+        $design = CardDesign::where('event_id', $event->id)
+            ->where('is_active', true)
+            ->where('design_type', 'pdf')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $design || ! $design->pdf_file_path) {
+            abort(404, 'No active PDF invitation design for this event. Upload and save a card design first.');
+        }
+
+        try {
+            $path = $composer->compose($design, $invitee);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        $safe = preg_replace('/[^a-zA-Z0-9_-]+/', '-', (string) $invitee->name) ?: 'invitee';
+
+        return response()->download(
+            $path,
+            "invitation-{$safe}-{$invitee->invitation_code}.pdf",
+            ['Content-Type' => 'application/pdf']
+        )->deleteFileAfterSend(true);
     }
 
     public function verifyInvitation()
     {
-        return view('event.invitee.verify');
+        $user = Auth::user();
+        if ($user->isViewer()) {
+            if (! $user->viewer_for_user_id) {
+                return redirect()
+                    ->route('viewer.dashboard')
+                    ->with('error', 'Your viewer account is not linked to an organizer yet. Ask your organizer to recreate your login.');
+            }
+        }
+
+        return view('event.invitee.verify', [
+            'scanLookupUrl' => route('event.invitation.verify-lookup'),
+            'scanCheckInUrl' => route('event.invitation.check-in'),
+        ]);
     }
 
     public function currentInvitation()
@@ -169,17 +277,22 @@ public function show($id)
     public function saveCardDesign(Request $request)
     {
         $validated = $request->validate([
-            'event_id' => 'required|exists:events,id',
+            'event_id' => [
+                'required',
+                Rule::exists('events', 'id')->where('user_id', auth()->id()),
+            ],
             'design_name' => 'required|string|max:255',
-            'design_type' => 'required|in:template,pdf',
-            'template_name' => 'nullable|string|max:255',
+            'design_type' => 'required|in:pdf',
             'qr_position_x' => 'required|integer|min:0',
             'qr_position_y' => 'required|integer|min:0',
             'qr_size' => 'required|integer|min:50|max:200',
             'qr_color' => 'required|string|max:7',
             'qr_background_color' => 'required|string|max:7',
-            'text_content' => 'nullable|array',
-            'pdf_file' => 'nullable|file|mimes:pdf|max:20480', // 20MB max
+            'qr_layout' => 'required|array',
+            'qr_layout.nx' => 'required|numeric|between:0,1',
+            'qr_layout.ny' => 'required|numeric|between:0,1',
+            'qr_layout.nw' => 'required|numeric|between:0.02,1',
+            'pdf_file' => 'required|file|mimes:pdf|max:20480',
         ]);
 
         DB::beginTransaction();
@@ -194,23 +307,23 @@ public function show($id)
             $cardDesign->event_id = $validated['event_id'];
             $cardDesign->user_id = auth()->id();
             $cardDesign->design_name = $validated['design_name'];
-            $cardDesign->design_type = $validated['design_type'];
+            $cardDesign->design_type = 'pdf';
             $cardDesign->qr_position_x = $validated['qr_position_x'];
             $cardDesign->qr_position_y = $validated['qr_position_y'];
             $cardDesign->qr_size = $validated['qr_size'];
             $cardDesign->qr_color = $validated['qr_color'];
             $cardDesign->qr_background_color = $validated['qr_background_color'];
+            $cardDesign->qr_layout = [
+                'nx' => (float) $validated['qr_layout']['nx'],
+                'ny' => (float) $validated['qr_layout']['ny'],
+                'nw' => (float) $validated['qr_layout']['nw'],
+            ];
             $cardDesign->is_active = true;
 
-            if ($validated['design_type'] === 'template') {
-                $cardDesign->template_name = $validated['template_name'];
-                $cardDesign->text_content = $validated['text_content'] ?? [];
-            } elseif ($validated['design_type'] === 'pdf' && $request->hasFile('pdf_file')) {
-                $pdfFile = $request->file('pdf_file');
-                $fileName = 'card-designs/' . Str::uuid() . '.' . $pdfFile->getClientOriginalExtension();
-                $pdfFile->storeAs('public', $fileName);
-                $cardDesign->pdf_file_path = $fileName;
-            }
+            $pdfFile = $request->file('pdf_file');
+            $fileName = 'card-designs/'.Str::uuid().'.'.$pdfFile->getClientOriginalExtension();
+            $pdfFile->storeAs('public', $fileName);
+            $cardDesign->pdf_file_path = $fileName;
 
             $cardDesign->save();
 
@@ -309,7 +422,13 @@ public function show($id)
             return view('event.invitee.not-found');
         }
 
-        return view('event.invitee.verify', compact('invitee'));
+        return view('event.invitee.verify', array_merge(
+            compact('invitee'),
+            [
+                'scanLookupUrl' => route('event.invitation.verify-lookup'),
+                'scanCheckInUrl' => route('event.invitation.check-in'),
+            ]
+        ));
     }
 
     /**
@@ -343,5 +462,111 @@ public function show($id)
             'message' => 'Response recorded successfully',
             'status' => $validated['status']
         ]);
+    }
+
+    public function verifyScanLookup(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:512',
+        ]);
+
+        $code = $this->normalizeInvitationCode($validated['code']);
+        if ($code === '') {
+            return response()->json(['success' => false, 'message' => 'Invalid code'], 422);
+        }
+
+        $invitee = Invitee::with('event')
+            ->where(function ($q) use ($code) {
+                $q->where('invitation_code', $code);
+                $q->orWhere('qr_code', $code);
+            })
+            ->first();
+
+        if (! $invitee) {
+            return response()->json(['success' => false, 'message' => 'Invitation not found'], 404);
+        }
+
+        if (! Auth::user()->canAccessInviteeForScan($invitee)) {
+            return response()->json(['success' => false, 'message' => 'Not allowed to verify this invitation'], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'invitee' => $this->serializeInviteeForScan($invitee),
+        ]);
+    }
+
+    public function verifyScanCheckIn(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:512',
+        ]);
+
+        $code = $this->normalizeInvitationCode($validated['code']);
+        if ($code === '') {
+            return response()->json(['success' => false, 'message' => 'Invalid code'], 422);
+        }
+
+        $invitee = Invitee::with('event')
+            ->where(function ($q) use ($code) {
+                $q->where('invitation_code', $code);
+                $q->orWhere('qr_code', $code);
+            })
+            ->first();
+
+        if (! $invitee) {
+            return response()->json(['success' => false, 'message' => 'Invitation not found'], 404);
+        }
+
+        if (! Auth::user()->canAccessInviteeForScan($invitee)) {
+            return response()->json(['success' => false, 'message' => 'Not allowed to check in this guest'], 403);
+        }
+
+        if ($invitee->hasCheckedIn()) {
+            return response()->json([
+                'success' => true,
+                'already_checked_in' => true,
+                'invitee' => $this->serializeInviteeForScan($invitee),
+            ]);
+        }
+
+        $invitee->forceFill([
+            'checked_in_at' => now(),
+            'checked_in_by' => Auth::id(),
+        ])->save();
+
+        return response()->json([
+            'success' => true,
+            'already_checked_in' => false,
+            'invitee' => $this->serializeInviteeForScan($invitee->fresh()),
+        ]);
+    }
+
+    private function normalizeInvitationCode(string $raw): string
+    {
+        $raw = trim($raw);
+        if (preg_match('#/invitee/([A-Za-z0-9_-]+)#', $raw, $matches)) {
+            return $matches[1];
+        }
+
+        return $raw;
+    }
+
+    private function serializeInviteeForScan(Invitee $invitee): array
+    {
+        $invitee->loadMissing('event');
+
+        return [
+            'id' => $invitee->id,
+            'name' => $invitee->name,
+            'email' => $invitee->email,
+            'phone' => $invitee->phone,
+            'company' => $invitee->company,
+            'status' => $invitee->status,
+            'invitation_code' => $invitee->invitation_code,
+            'event_title' => $invitee->event?->title,
+            'checked_in' => $invitee->hasCheckedIn(),
+            'checked_in_at' => optional($invitee->checked_in_at)?->toIso8601String(),
+        ];
     }
 }

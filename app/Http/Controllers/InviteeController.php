@@ -16,13 +16,15 @@ use Illuminate\Support\Facades\Storage;
 
 class InviteeController extends Controller
 {
-    public function create()
+    public function create($eventId)
     {
-        $events = Event::where('user_id', Auth::id())
-                     ->orderBy('date', 'desc')
-                     ->get();
+        // Find the event by ID and ensure it belongs to the authenticated user
+        $event = Event::where('id', $eventId)
+                      ->where('user_id', Auth::id())
+                      ->firstOrFail();
 
-        return view('event.invitee.create', compact('events'));
+        // Return the view with the specific event data
+        return view('event.invitee.create', compact('event'));
     }
 
     public function uploadExcel(Request $request)
@@ -217,25 +219,27 @@ class InviteeController extends Controller
                 // Generate unique invitation code
                 $invitationCode = Invitee::generateInvitationCode();
 
-                // Generate QR code content and image
-                $qrContent = route('invitee.show', ['code' => $invitationCode]);
-                $qrImage = QrCode::format('png')
-                    ->size(250)
-                    ->errorCorrection('H')
-                    ->generate($qrContent);
+                // SVG works without imagick/GD binary drivers; PNG often requires imagick on Windows.
+                $qrFilePath = null;
+                try {
+                    $qrContent = route('invitee.show', ['code' => $invitationCode]);
+                    $qrImage = QrCode::format('svg')
+                        ->size(250)
+                        ->errorCorrection('H')
+                        ->generate($qrContent);
 
-                // Ensure directory exists and generate filename
-                $directory = 'qrcodes';
-                if (!Storage::disk('public')->exists($directory)) {
-                    Storage::disk('public')->makeDirectory($directory);
+                    $directory = 'qrcodes';
+                    if (! Storage::disk('public')->exists($directory)) {
+                        Storage::disk('public')->makeDirectory($directory);
+                    }
+
+                    $qrFilePath = $directory.'/'.$invitationCode.'_'.time().'.svg';
+                    Storage::disk('public')->put($qrFilePath, $qrImage);
+                } catch (\Throwable $e) {
+                    \Log::warning('QR generation failed for invitee draft: '.$e->getMessage());
                 }
-                
-                $fileName = $directory . '/' . $invitationCode . '_' . time() . '.png';
 
-                // Store QR code
-                Storage::disk('public')->put($fileName, $qrImage);
-
-                // Create invitee with all data including QR code
+                // Create invitee (QR file optional so saving never depends on image extensions)
                 Invitee::create([
                     'event_id' => $eventId,
                     'name' => $inviteeData['name'],
@@ -244,7 +248,7 @@ class InviteeController extends Controller
                     'company' => $inviteeData['company'] ?? null,
                     'notes' => $inviteeData['notes'] ?? null,
                     'invitation_code' => $invitationCode,
-                    'qr_code' => $fileName, // Set directly in create
+                    'qr_code' => $qrFilePath,
                     'status' => 'pending',
                     'invited_at' => now(),
                 ]);
@@ -259,6 +263,20 @@ class InviteeController extends Controller
             }
         }
 
+        if ($successCount === 0) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => count($errors)
+                    ? 'No invitees could be saved. '.implode(' ', array_slice($errors, 0, 5))
+                    : 'No new invitees were saved.',
+                'count' => 0,
+                'errors' => $errors,
+                'error_count' => $errorCount,
+            ], 422);
+        }
+
         DB::commit();
 
         return response()->json([
@@ -266,7 +284,7 @@ class InviteeController extends Controller
             'message' => "{$successCount} invitees successfully added to the event",
             'count' => $successCount,
             'errors' => $errors,
-            'error_count' => $errorCount
+            'error_count' => $errorCount,
         ]);
 
     } catch (\Exception $e) {

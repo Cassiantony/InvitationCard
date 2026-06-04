@@ -287,12 +287,7 @@
                                 My Events
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" href="{{ route('invitee.create') }}">
-                                <i class="fas fa-user-plus"></i>
-                                Add Invitees
-                            </a>
-                        </li>
+                       
                         <li class="nav-item">
                             <a class="nav-link" href="#">
                                 <i class="fas fa-user-friends"></i>
@@ -363,15 +358,14 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <label for="event-select" class="form-label">Choose Event</label>
-                                <select class="form-select" id="event-select" name="event_id">
-                                    <option value="">Select an event</option>
-                                    @foreach($events as $event)
-                                        <option value="{{ $event->id }}">
-                                            {{ $event->title }} ({{ \Carbon\Carbon::parse($event->date)->format('d M, Y') }})
-                                        </option>
-                                    @endforeach
-                                </select>
+                            <div class="mb-3">
+                                <label for="event-name" class="form-label">Event</label>
+                                <input type="text" class="form-control bg-light" id="event-name" 
+                                    value="{{ $event->title }} ({{ \Carbon\Carbon::parse($event->date)->format('d M, Y g:i A') }})" 
+                                    readonly disabled>
+                                <input type="hidden" id="event-select" name="event_id" value="{{ $event->id }}">
+                                <small class="text-muted">Location: {{ $event->location }}</small>
+                            </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="d-flex align-items-end h-100">
@@ -630,12 +624,12 @@
                             <p class="text-muted mb-4">
                                 You have successfully added <strong id="final-count">0</strong> invitees to your event.
                             </p>
-                            <div class="d-flex justify-content-center gap-3">
-                                <a href="#" class="btn btn-primary">
+                            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                                <a href="{{ route('event.invitation.send', ['event_id' => $event->id]) }}" class="btn btn-primary">
                                     <i class="fas fa-paper-plane me-1"></i> Send Invitations
                                 </a>
-                                <a href="#" class="btn btn-outline-secondary">
-                                    <i class="fas fa-calendar me-1"></i> Back to Events
+                                <a href="{{ route('event.show', $event->id) }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-calendar me-1"></i> Back to Event
                                 </a>
                                 <button class="btn btn-outline-primary" id="add-more-btn">
                                     <i class="fas fa-plus me-1"></i> Add More Invitees
@@ -1158,18 +1152,26 @@
                 });
                 
                 const result = await response.json();
-                
-                if (result.success) {
-                    navigateToStep(3);
-                    const finalCount = document.getElementById('final-count');
-                    if (finalCount) finalCount.textContent = result.count;
-                    
-                    // Show errors if any
-                    if (result.errors && result.errors.length > 0) {
-                        console.warn('Some invitees failed:', result.errors);
-                    }
-                } else {
-                    alert('Error: ' + result.message);
+
+                if (!response.ok || !result.success) {
+                    const errLines = (result.errors && result.errors.length)
+                        ? '\n\n' + result.errors.slice(0, 8).join('\n')
+                        : '';
+                    alert((result.message || 'Could not save invitees.') + errLines);
+                    return;
+                }
+
+                if (!result.count) {
+                    alert(result.message || 'No invitees were saved.');
+                    return;
+                }
+
+                navigateToStep(3);
+                const finalCount = document.getElementById('final-count');
+                if (finalCount) finalCount.textContent = result.count;
+
+                if (result.errors && result.errors.length > 0) {
+                    console.warn('Some invitees failed:', result.errors);
                 }
             } catch (error) {
                 console.error('Confirm error:', error);

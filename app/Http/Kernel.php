@@ -66,5 +66,9 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'owner' => \App\Http\Middleware\Owner::class,
         'admin' => \App\Http\Middleware\Admin::class,
+        'owner_or_admin' => \App\Http\Middleware\OwnerOrAdmin::class,
+        'manager' => \App\Http\Middleware\EnsureManager::class,
+        'viewer' => \App\Http\Middleware\EnsureViewer::class,
+        'not_viewer' => \App\Http\Middleware\DenyViewersFromEventManagement::class,
     ];
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class CardDesign extends Model
 {
@@ -21,6 +22,7 @@ class CardDesign extends Model
         'qr_size',
         'qr_color',
         'qr_background_color',
+        'qr_layout',
         'text_content', // JSON field for template text content
         'is_active',
         'created_at',
@@ -29,6 +31,7 @@ class CardDesign extends Model
 
     protected $casts = [
         'text_content' => 'array',
+        'qr_layout' => 'array',
         'is_active' => 'boolean',
     ];
 
@@ -46,8 +49,9 @@ class CardDesign extends Model
     public function getDesignFilePath()
     {
         if ($this->design_type === 'pdf' && $this->pdf_file_path) {
-            return storage_path('app/' . $this->pdf_file_path);
+            return Storage::disk('public')->path($this->pdf_file_path);
         }
+
         return null;
     }
 

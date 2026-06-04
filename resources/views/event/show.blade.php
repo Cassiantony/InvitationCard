@@ -581,17 +581,20 @@
                             </div>
                             <div class="card-body">
                                 <div class="d-grid gap-2">
-                                    <a href="{{ route('invitee.create') }}" class="btn btn-primary">
+                                    <a href="{{ route('invitee.create', $event->id) }}" class="btn btn-primary">
                                     <i class="fas fa-user-plus"></i> Add Invintees
+                                    </a>
+                                    <a href="{{ route('event.invitation.card-upload', ['event_id' => $event->id]) }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-file-pdf me-1"></i> Upload invitation PDF
                                     </a>
                                     <a href="{{ route('event.invitation.send') }}" class="btn btn-success">
                                     <i class="fas fa-paper-plane"></i> Send Invitations
                                     </a>
-                                    <a href="#" class="btn btn-info">
-                                        <i class="fas fa-qrcode me-1"></i> Generate QR Code
+                                    <a href="{{ route('event.viewers.index', $event) }}" class="btn btn-info">
+                                        <i class="fas fa-eye me-1"></i> Manage Viewers
                                     </a>
-                                    <a href="#" class="btn btn-warning">
-                                        <i class="fas fa-envelope me-1"></i> Send Reminders
+                                    <a href="{{ route('event.invitation.verify') }}" class="btn btn-warning">
+                                        <i class="fa-solid fa-users-viewfinder"></i> Start scanning
                                     </a>
                                 </div>
                             </div>

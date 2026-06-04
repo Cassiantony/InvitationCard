@@ -331,6 +331,7 @@
             <ul class="nav flex-column mt-3">
                 <li><a href="#" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
                 <li><a href="{{ route('manageadmins') }}" class="nav-link"><i class="fas fa-users-cog"></i> Manage Admins</a></li>
+                <li><a href="{{ route('manage.managers') }}" class="nav-link"><i class="fas fa-user-tie"></i> Managers</a></li>
                 <li><a href="#" class="nav-link"><i class="fas fa-calendar-alt"></i> All Events</a></li>
                 <li><a href="#" class="nav-link"><i class="fas fa-user-friends"></i> All Invitees</a></li>
                 <li><a href="#" class="nav-link"><i class="fas fa-credit-card"></i> Payments & Revenue</a></li>

@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -15,6 +16,14 @@ class OwnerAdminController extends Controller
     private const ONLINE_WINDOW_MINUTES = 5;
 
     public function index(Request $request): View
+    {
+        return view('owner.manageadmins', $this->manageAdminsViewData($request));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function manageAdminsViewData(Request $request): array
     {
         $search = trim((string) $request->query('search', ''));
 
@@ -29,17 +38,20 @@ class OwnerAdminController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return view('owner.manageadmins', [
+        $ownerCount = User::where('role', User::ROLE_OWNER)->count();
+
+        return [
             'admins' => $admins,
             'search' => $search,
             'totalAdmins' => User::count(),
-            'superAdminCount' => User::whereRaw("REPLACE(LOWER(role), ' ', '') = ?", ['superadmin'])->count(),
+            'ownerCount' => $ownerCount,
+            'superAdminCount' => $ownerCount,
             'activeSessionsCount' => User::whereNotNull('last_seen_at')
                 ->where('last_seen_at', '>=', now()->subMinutes(self::ONLINE_WINDOW_MINUTES))
                 ->count(),
             'onlineWindowMinutes' => self::ONLINE_WINDOW_MINUTES,
             'lastUpdatedAt' => User::max('updated_at'),
-        ]);
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -47,18 +59,25 @@ class OwnerAdminController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:255'],
-            'role' => ['required', 'string', 'max:255'],
+            'role' => ['required', 'string', Rule::in(User::ROLES_CREATABLE_BY_OWNER)],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        User::create([
+        $userData = [
             'name' => $request->name,
             'phone' => $request->phone,
             'role' => $request->role,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-        ]);
+            'viewer_for_user_id' => null,
+        ];
+
+        if ($request->role === User::ROLE_VIEWER) {
+            $userData['viewer_for_user_id'] = $request->user()->id;
+        }
+
+        User::create($userData);
 
         return redirect()
             ->route('manageadmins')
@@ -66,9 +85,12 @@ class OwnerAdminController extends Controller
     }
 
 
-    public function edit(User $user){
-        $data['user'] = $user;
-        return view('owner.manageadmins', $data);
+    public function edit(Request $request, User $user): View
+    {
+        return view('owner.manageadmins', array_merge(
+            $this->manageAdminsViewData($request),
+            ['user' => $user]
+        ));
     }
 
       // Delete user with password confirmation
@@ -106,11 +128,11 @@ class OwnerAdminController extends Controller
           $user->delete();
           
           // Log the action (optional)
-          Log::info('User deleted by Super Admin', [
-              'super_admin_id' => $authenticatedUser->id,
-              'super_admin_name' => $authenticatedUser->name,
+          Log::info('User deleted by owner', [
+              'deleter_id' => $authenticatedUser->id,
+              'deleter_name' => $authenticatedUser->name,
               'deleted_user' => $userInfo,
-              'timestamp' => now()
+              'timestamp' => now(),
           ]);
           
           return redirect()->route('manageadmins')

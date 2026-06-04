@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class Admin
+class EnsureManager
 {
     public function handle(Request $request, Closure $next)
     {
@@ -14,7 +14,7 @@ class Admin
             return redirect()->route('login');
         }
 
-        if (! Auth::user()->canAccessAdminArea()) {
+        if (! Auth::user()->isManager()) {
             return redirect()->route('home');
         }
 

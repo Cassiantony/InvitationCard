@@ -47,6 +47,15 @@ class Event extends Model
     }
 
     /**
+     * Viewers assigned to scan QR codes at this event.
+     */
+    public function viewers()
+    {
+        return $this->belongsToMany(User::class, 'event_viewer')
+            ->withTimestamps();
+    }
+
+    /**
      * Get the invitation designs for the event.
      */
     public function designs()
