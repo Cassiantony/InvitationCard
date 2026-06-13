@@ -82,38 +82,167 @@ class EventController extends Controller
 public function show($id)
 {
     try {
-        \Log::info('Show method called with ID: ' . $id);
-        \Log::info('Authenticated user ID: ' . auth()->id());
+        $event = Event::query()
+            ->where('user_id', auth()->id())
+            ->with(['viewers' => fn ($q) => $q->orderBy('name')])
+            ->find($id);
 
-        // Get the event
-        $event = Event::where('user_id', auth()->id())->find($id);
-        
-        if (!$event) {
-            \Log::warning('Event not found. ID: ' . $id . ', User ID: ' . auth()->id());
+        if (! $event) {
             return back()->with('error', 'Event not found or you do not have permission to view it.');
         }
 
-        \Log::info('Event found: ' . $event->title);
+        $totalInvites = $event->invitees()->count();
+        $confirmedAttendees = $event->invitees()->where('status', 'confirmed')->count();
+        $pendingResponses = $event->invitees()->whereIn('status', ['pending', 'sent'])->count();
+        $declinedInvites = $event->invitees()->where('status', 'declined')->count();
 
-        // Initialize statistics with default values
-        $totalInvites = 0;
-        $confirmedAttendees = 0;
-        $pendingResponses = 0;
-        $declinedInvites = 0;
+        $deliveries = InvitationDelivery::query()
+            ->with(['invitee:id,name,email,status'])
+            ->where('event_id', $event->id)
+            ->where('user_id', auth()->id())
+            ->orderByDesc('created_at')
+            ->get();
+
+        $deliveryStats = [
+            'sent' => $deliveries->where('status', 'sent')->count(),
+            'failed' => $deliveries->where('status', 'failed')->count(),
+            'total_spent_tsh' => $deliveries->where('status', 'sent')->sum('cost_tsh'),
+            'delivery_rate' => $deliveries->count() > 0
+                ? (int) round(($deliveries->where('status', 'sent')->count() / $deliveries->count()) * 100)
+                : 0,
+        ];
+
+        $recentDeliveries = $deliveries->take(5);
+        $viewers = $event->viewers;
 
         return view('event.show', compact(
             'event',
             'totalInvites',
             'confirmedAttendees',
             'pendingResponses',
-            'declinedInvites'
+            'declinedInvites',
+            'deliveryStats',
+            'recentDeliveries',
+            'viewers',
         ));
-
     } catch (\Exception $e) {
-        \Log::error('Event show error: ' . $e->getMessage());
+        \Log::error('Event show error: '.$e->getMessage());
+
         return back()->with('error', 'An error occurred while loading the event.');
     }
 }
+
+    public function eventVerify(Event $event)
+    {
+        $this->authorizeEventVerify($event);
+
+        return view('event.verify', [
+            'event' => $event,
+            'lookupUrl' => route('event.verify.lookup', $event),
+            'checkInUrl' => route('event.verify.check-in', $event),
+        ]);
+    }
+
+    public function eventVerifyLookup(Request $request, Event $event): JsonResponse
+    {
+        $this->authorizeEventVerify($event);
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:512'],
+        ]);
+
+        $code = $this->normalizeInvitationCode($validated['code']);
+        if ($code === '') {
+            return response()->json(['success' => false, 'message' => 'Invalid invitation code.'], 422);
+        }
+
+        $invitee = Invitee::query()
+            ->where('event_id', $event->id)
+            ->where(function ($q) use ($code) {
+                $q->where('invitation_code', $code)
+                    ->orWhere('qr_code', $code);
+            })
+            ->first();
+
+        if (! $invitee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No invitee with this code for '.$event->title.'.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'invitee' => $this->serializeInviteeForScan($invitee),
+        ]);
+    }
+
+    public function eventVerifyCheckIn(Request $request, Event $event): JsonResponse
+    {
+        $this->authorizeEventVerify($event);
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:512'],
+        ]);
+
+        $code = $this->normalizeInvitationCode($validated['code']);
+        if ($code === '') {
+            return response()->json(['success' => false, 'message' => 'Invalid invitation code.'], 422);
+        }
+
+        $invitee = Invitee::query()
+            ->where('event_id', $event->id)
+            ->where(function ($q) use ($code) {
+                $q->where('invitation_code', $code)
+                    ->orWhere('qr_code', $code);
+            })
+            ->first();
+
+        if (! $invitee) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No invitee with this code for this event.',
+            ], 404);
+        }
+
+        if ($invitee->hasCheckedIn()) {
+            return response()->json([
+                'success' => true,
+                'already_checked_in' => true,
+                'invitee' => $this->serializeInviteeForScan($invitee),
+            ]);
+        }
+
+        $invitee->forceFill([
+            'checked_in_at' => now(),
+            'checked_in_by' => Auth::id(),
+        ])->save();
+
+        return response()->json([
+            'success' => true,
+            'already_checked_in' => false,
+            'invitee' => $this->serializeInviteeForScan($invitee->fresh()),
+        ]);
+    }
+
+    private function authorizeEventVerify(Event $event): void
+    {
+        $user = auth()->user();
+
+        if ((int) $event->user_id === (int) $user->id) {
+            return;
+        }
+
+        if ($user->isViewer()
+            && (int) $user->viewer_for_user_id === (int) $event->user_id) {
+            $assigned = $user->viewerEvents();
+            if (! $assigned->exists() || $assigned->where('events.id', $event->id)->exists()) {
+                return;
+            }
+        }
+
+        abort(403, 'You do not have permission to verify guests for this event.');
+    }
     public function create()
     {
         return view('event.create');

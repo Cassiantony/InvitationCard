@@ -140,6 +140,9 @@ Route::middleware(['auth', 'not_viewer'])->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('event/{event}/verify', [EventController::class, 'eventVerify'])->name('event.verify');
+    Route::post('event/{event}/verify/lookup', [EventController::class, 'eventVerifyLookup'])->name('event.verify.lookup');
+    Route::post('event/{event}/verify/check-in', [EventController::class, 'eventVerifyCheckIn'])->name('event.verify.check-in');
     Route::get('event/invitation/verify', [EventController::class, 'verifyInvitation'])->name('event.invitation.verify');
     Route::post('event/invitation/verify-lookup', [EventController::class, 'verifyScanLookup'])->name('event.invitation.verify-lookup');
     Route::post('event/invitation/check-in', [EventController::class, 'verifyScanCheckIn'])->name('event.invitation.check-in');
