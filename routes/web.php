@@ -8,6 +8,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InviteeController;
 use App\Http\Controllers\OwnerAdminController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WalletController;
 use App\Models\Event;
 use Illuminate\Support\Facades\Route;
 
@@ -111,12 +112,20 @@ Route::middleware(['auth', 'not_viewer'])->group(function () {
     Route::delete('event/destroy/{id}', [EventController::class, 'destroyEvent'])->name('event.destroy');
     Route::get('event/invitation/send', [EventController::class, 'sendInvitation'])->name('event.invitation.send');
     Route::get('event/invitation/send-details', [EventController::class, 'sendInvitationDetails'])->name('event.invitation.send-details');
+    Route::get('event/{event}/invitation/delivery-report', [EventController::class, 'deliveryReport'])->name('event.invitation.delivery-report');
+    Route::get('wallet/add-funds', [WalletController::class, 'create'])->name('wallet.add-funds');
+    Route::post('wallet/add-funds', [WalletController::class, 'store'])->name('wallet.add-funds.store');
+    Route::get('wallet/topup/{topup}/pending', [WalletController::class, 'pending'])->name('wallet.topup.pending');
+    Route::get('wallet/topup/{topup}/success', [WalletController::class, 'success'])->name('wallet.topup.success');
     Route::get('event/invitation/card-upload', [EventController::class, 'eventCardUpload'])->name('event.invitation.card-upload');
     Route::get('event/{event}/viewers', [EventViewerController::class, 'index'])->name('event.viewers.index');
     Route::post('event/{event}/viewers', [EventViewerController::class, 'store'])->name('event.viewers.store');
     Route::delete('event/{event}/viewers/{user}', [EventViewerController::class, 'destroy'])->name('event.viewers.destroy');
     Route::get('event/{event}/invitees.json', [EventController::class, 'inviteesJson'])->name('event.invitees.json');
     Route::get('event/{event}/invitation-card/{invitee}', [EventController::class, 'downloadInvitationCard'])->name('event.invitation-card.download');
+    Route::post('event/{event}/invitation/send', [EventController::class, 'sendInvitationCards'])->name('event.invitation.send-cards');
+    Route::get('event/{event}/invitation/resend/{invitee}/quote', [EventController::class, 'resendQuote'])->name('event.invitation.resend-quote');
+    Route::post('event/{event}/invitation/resend/{invitee}', [EventController::class, 'resendInvitation'])->name('event.invitation.resend');
     Route::get('event/invitee/current-invitation', [EventController::class, 'currentInvitation'])->name('event.invitee.current-invitation');
 
     Route::post('event/card-design/save', [EventController::class, 'saveCardDesign'])->name('design.create');
@@ -135,4 +144,6 @@ Route::middleware('auth')->group(function () {
     Route::post('event/invitation/verify-lookup', [EventController::class, 'verifyScanLookup'])->name('event.invitation.verify-lookup');
     Route::post('event/invitation/check-in', [EventController::class, 'verifyScanCheckIn'])->name('event.invitation.check-in');
 });
+Route::post('wallet/stripe/webhook', [WalletController::class, 'stripeWebhook'])->name('wallet.stripe.webhook');
+
 require __DIR__.'/auth.php';

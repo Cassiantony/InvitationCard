@@ -272,9 +272,9 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link" href="{{ route('wallet.add-funds') }}">
                                 <i class="fas fa-wallet"></i>
-                                Billing
+                                Add Funds
                             </a>
                         </li>
                         <li class="nav-item">
@@ -319,6 +319,18 @@
                     </div>
                 </div>
                 
+                <div class="alert alert-info d-flex align-items-start mb-4">
+                    <i class="fab fa-whatsapp me-2 mt-1"></i>
+                    <div>
+                        <strong>WhatsApp first:</strong> Each invitee receives their card as a <strong>PNG image</strong> on WhatsApp via the <strong>Meta Cloud API</strong>.
+                        If the number is not on WhatsApp, the system sends the <strong>invitation code via NextSMS</strong> automatically.
+                        Cost: Tsh {{ number_format($invitationCostTsh) }} per successful delivery.
+                        @if(config('invitation.demo_messaging') && app()->environment('local') && empty(config('services.whatsapp.access_token')))
+                            <span class="d-block mt-1 small">Demo mode: configure <code>WHATSAPP_*</code> and <code>NEXTSMS_*</code> in <code>.env</code> for live sending. Until then, phone numbers ending in an <strong>even</strong> digit simulate WhatsApp; odd digits fall back to SMS.</span>
+                        @endif
+                    </div>
+                </div>
+
                 <!-- Balance Information -->
                 <div class="balance-info">
                     <div class="row align-items-center">
@@ -327,8 +339,13 @@
                             <p class="mb-0">Current balance available for sending invitations</p>
                         </div>
                         <div class="col-md-6 text-end">
-                            <h2 class="mb-0">$245.00</h2>
-                            <a href="#" class="text-white-50">Add Funds <i class="fas fa-arrow-right ms-1"></i></a>
+                            <h2 class="mb-0" id="wallet-balance-display">Tsh {{ number_format($walletBalance) }}</h2>
+                            <a href="{{ route('wallet.add-funds', ['return' => url()->current()]) }}" class="text-white me-3">
+                                <i class="fas fa-plus-circle me-1"></i>Add funds
+                            </a>
+                            <a href="{{ $selectedEvent ? route('event.invitation.delivery-report', $selectedEvent) : '#' }}" class="text-white-50" id="delivery-report-link">
+                                View delivery report <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -419,8 +436,15 @@
                                         <div class="alert alert-success mb-3">
                                             <i class="fas fa-check-circle me-2"></i>
                                             <strong>{{ $cardDesign->design_name }}</strong> is saved for this event.
-                                            Each invitee gets their own QR on your PDF when you download or send.
+                                            Each invitee gets their own QR on your card when invitations are sent as a <strong>PNG image</strong>.
                                         </div>
+                                        @if(!$cardDesign->template_image_path)
+                                            <div class="alert alert-warning mb-3">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                Re-save your design once so your PDF is converted to an image for WhatsApp delivery.
+                                                <a href="{{ route('event.invitation.card-upload', ['event_id' => $selectedEvent->id, 'return' => 'send']) }}" class="alert-link">Open Design Card</a>
+                                            </div>
+                                        @endif
                                     @else
                                         <div class="alert alert-warning mb-3">
                                             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -428,8 +452,8 @@
                                         </div>
                                     @endif
                                     <p class="text-muted small mb-3">
-                                        Use your own design (Word, Canva, etc.) exported as PDF. You drag the QR placeholder onto page 1;
-                                        the system stamps a unique QR per invitee when invitations are generated.
+                                        Upload your design as PDF. When you save, page 1 is converted to a high-quality PNG automatically.
+                                        Invitations are sent as that image (with each invitee’s unique QR) via WhatsApp or SMS.
                                     </p>
                                     <div class="d-flex flex-wrap gap-2">
                                         <a href="{{ route('event.invitation.card-upload', ['event_id' => $selectedEvent->id, 'return' => 'send']) }}"
@@ -502,27 +526,23 @@
                                     <div class="cost-breakdown">
                                         <div class="cost-item">
                                             <span>Invitation Cost per Card:</span>
-                                            <span>$10.00</span>
+                                            <span id="cost-per-card">Tsh {{ number_format($invitationCostTsh) }}</span>
                                         </div>
                                         <div class="cost-item">
                                             <span>Number of Selected Invitees:</span>
                                             <span id="cost-invitee-count">0</span>
                                         </div>
                                         <div class="cost-item">
-                                            <span>WhatsApp Delivery (Estimated):</span>
-                                            <span id="cost-whatsapp">0</span>
-                                        </div>
-                                        <div class="cost-item">
-                                            <span>SMS Delivery (Estimated):</span>
-                                            <span id="cost-sms">0</span>
-                                        </div>
-                                        <div class="cost-item">
-                                            <span>Service Fee (5%):</span>
-                                            <span id="cost-service">$0.00</span>
+                                            <span>Delivery method:</span>
+                                            <span id="cost-delivery-method">Auto (WhatsApp → SMS)</span>
                                         </div>
                                         <div class="total-cost">
                                             <span>Total Cost:</span>
-                                            <span id="cost-total">$0.00</span>
+                                            <span id="cost-total">Tsh 0</span>
+                                        </div>
+                                        <div class="cost-item mt-2">
+                                            <span>Balance after send:</span>
+                                            <span id="cost-remaining">Tsh {{ number_format($walletBalance) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -536,7 +556,7 @@
                                             </div>
                                             <div class="flex-grow-1 ms-3">
                                                 <h6 class="mb-1">Account Wallet</h6>
-                                                <p class="mb-0 text-muted">Use your available balance: $245.00</p>
+                                                <p class="mb-0 text-muted">Use your wallet: <span id="wallet-balance-inline">Tsh {{ number_format($walletBalance) }}</span></p>
                                             </div>
                                             <div class="flex-shrink-0">
                                                 <i class="fas fa-check text-primary"></i>
@@ -589,28 +609,25 @@
                                 <h6 class="m-0 font-weight-bold text-primary">Sending Statistics</h6>
                             </div>
                             <div class="card-body">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between mb-1">
-                                        <span>Invitations Sent This Month</span>
-                                        <span>45/100</span>
-                                    </div>
-                                    <div class="progress">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 45%"></div>
-                                    </div>
-                                </div>
-                                
                                 <div class="row text-center">
                                     <div class="col-6">
                                         <div class="border-end">
-                                            <h5 class="text-primary mb-0">128</h5>
-                                            <small class="text-muted">Total Sent</small>
+                                            <h5 class="text-primary mb-0" id="stat-total-sent">{{ $deliveryStats['sent'] ?? 0 }}</h5>
+                                            <small class="text-muted">Sent (this event)</small>
                                         </div>
                                     </div>
                                     <div class="col-6">
-                                        <h5 class="text-success mb-0">87%</h5>
-                                        <small class="text-muted">Delivery Rate</small>
+                                        <h5 class="text-success mb-0" id="stat-delivery-rate">{{ ($deliveryStats['rate'] ?? 0) > 0 ? ($deliveryStats['rate'].'%') : '—' }}</h5>
+                                        <small class="text-muted">Success rate</small>
                                     </div>
                                 </div>
+                                @if($selectedEvent)
+                                    <div class="mt-3 text-center">
+                                        <a href="{{ route('event.invitation.delivery-report', $selectedEvent) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-chart-bar me-1"></i> Full delivery report
+                                        </a>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -684,11 +701,11 @@
                 <div class="modal-body text-center">
                     <i class="fas fa-paper-plane text-success mb-3" style="font-size: 4rem;"></i>
                     <h4 class="mb-3">Your invitations are on their way!</h4>
-                    <p class="mb-0">We've successfully sent <strong id="sent-count">0</strong> invitations to your guests.</p>
-                    <p>You will receive a delivery report shortly.</p>
+                    <p class="mb-0">We've emailed <strong id="sent-count">0</strong> invitation card(s) to your guests.</p>
+                    <p id="send-failures" class="text-danger small mb-0 d-none"></p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">View Delivery Report</button>
+                    <a href="#" class="btn btn-success" id="view-delivery-report-btn">View Delivery Report</a>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -702,11 +719,40 @@
         const cardUploadBaseUrl = @json(route('event.invitation.card-upload'));
         const inviteesJsonBase = @json(url('/event'));
         const inviteeCreateBase = @json(url('event/invitees/create'));
+        const hasCardDesign = @json((bool) $cardDesign && (bool) ($cardDesign->template_image_path ?? false));
+        let walletBalance = @json($walletBalance);
+        const invitationCost = @json($invitationCostTsh);
         let invitees = [];
         const selectedInvitees = new Set();
-        const invitationCost = 10.00;
-        const serviceFeeRate = 0.05;
         let currentEventId = @json($selectedEvent?->id);
+        let lastDeliveryReportUrl = @json($selectedEvent ? route('event.invitation.delivery-report', $selectedEvent) : null);
+
+        function formatTsh(amount) {
+            return 'Tsh ' + Number(amount).toLocaleString('en-TZ');
+        }
+
+        function updateWalletDisplay() {
+            const text = formatTsh(walletBalance);
+            document.getElementById('wallet-balance-display').textContent = text;
+            const inline = document.getElementById('wallet-balance-inline');
+            if (inline) inline.textContent = text;
+        }
+
+        function phoneOnWhatsApp(phone) {
+            const digits = String(phone || '').replace(/\D/g, '');
+            if (digits.length < 9) return false;
+            return (parseInt(digits.slice(-1), 10) % 2) === 0;
+        }
+
+        function selectedDeliveryMode() {
+            return document.querySelector('input[name="invitationMethod"]:checked')?.value || 'auto';
+        }
+
+        function deliveryModeLabel(mode) {
+            if (mode === 'whatsapp') return 'WhatsApp only';
+            if (mode === 'sms') return 'SMS only (code)';
+            return 'Auto (WhatsApp → SMS)';
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
@@ -734,7 +780,7 @@
                         name: inv.name,
                         email: inv.email,
                         phone: inv.phone || '',
-                        hasWhatsApp: Boolean(inv.phone)
+                        hasWhatsApp: phoneOnWhatsApp(inv.phone)
                     };
                 });
             } catch (e) {
@@ -856,48 +902,87 @@
                 });
             });
             
-            // Send invitations button
-            document.getElementById('send-invitations-btn').addEventListener('click', function() {
+            // Send invitations by email (testing)
+            document.getElementById('send-invitations-btn').addEventListener('click', async function() {
+                if (!currentEventId) {
+                    alert('Please select an event first.');
+                    return;
+                }
+                if (!hasCardDesign) {
+                    alert('Upload and save a PDF card design for this event before sending.');
+                    window.location.href = cardUploadBaseUrl + '?event_id=' + encodeURIComponent(currentEventId) + '&return=send';
+                    return;
+                }
                 if (selectedInvitees.size === 0) {
                     alert('Please select at least one invitee to send invitations to.');
                     return;
                 }
-                
-                const paymentMethod = document.querySelector('.payment-method.selected').getAttribute('data-method');
-                
-                if (paymentMethod === 'wallet') {
-                    // Show wallet payment modal
-                    document.getElementById('modal-total-cost').textContent = calculateTotalCost().toFixed(2);
-                    document.getElementById('modal-remaining-balance').textContent = 
-                        (245.00 - calculateTotalCost()).toFixed(2);
-                    
-                    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-                    paymentModal.show();
-                } else {
-                    // For other payment methods, we would show different payment flows
-                    alert(`Redirecting to ${paymentMethod} payment...`);
+
+                const btn = this;
+                const originalHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sending…';
+
+                try {
+                    const response = await fetch(sendInvitationsUrl(currentEventId), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({
+                            invitee_ids: Array.from(selectedInvitees),
+                            delivery_mode: selectedDeliveryMode(),
+                        }),
+                    });
+
+                    const data = await response.json();
+                    const failuresEl = document.getElementById('send-failures');
+
+                    if (data.success) {
+                        document.getElementById('sent-count').textContent = data.sent_count;
+                        if (typeof data.wallet_balance === 'number') {
+                            walletBalance = data.wallet_balance;
+                            updateWalletDisplay();
+                            updateCostSummary();
+                        }
+                        if (data.delivery_report_url) {
+                            lastDeliveryReportUrl = data.delivery_report_url;
+                            document.getElementById('view-delivery-report-btn').href = data.delivery_report_url;
+                            const reportLink = document.getElementById('delivery-report-link');
+                            if (reportLink) reportLink.href = data.delivery_report_url;
+                        }
+                        if (data.failed_count > 0 && failuresEl) {
+                            failuresEl.textContent = data.failed_count + ' could not be sent. Check logs for details.';
+                            failuresEl.classList.remove('d-none');
+                        } else if (failuresEl) {
+                            failuresEl.classList.add('d-none');
+                        }
+                        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                        successModal.show();
+                        selectedInvitees.clear();
+                        await loadInviteesForEvent(currentEventId);
+                    } else {
+                        let msg = data.message || 'Failed to send invitations.';
+                        if (data.failed && data.failed.length) {
+                            msg += '\n\n' + data.failed.map(f => (f.email || f.id) + ': ' + f.message).join('\n');
+                        }
+                        alert(msg);
+                    }
+                } catch (e) {
+                    alert('Network error while sending invitations.');
+                } finally {
+                    btn.innerHTML = originalHtml;
+                    updateSelectedCount();
                 }
             });
             
-            // Confirm wallet payment
-            document.getElementById('confirm-wallet-payment').addEventListener('click', function() {
-                // In a real application, this would process the payment via API
-                
-                // Close payment modal
-                const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
-                paymentModal.hide();
-                
-                // Show success modal
-                document.getElementById('sent-count').textContent = selectedInvitees.size;
-                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                successModal.show();
-                
-                // Reset form
-                selectedInvitees.clear();
-                renderInviteesList();
-                updateCostSummary();
-            });
-            
+            if (lastDeliveryReportUrl) {
+                document.getElementById('view-delivery-report-btn').href = lastDeliveryReportUrl;
+            }
+
             // Invitation method change
             document.querySelectorAll('input[name="invitationMethod"]').forEach(radio => {
                 radio.addEventListener('change', function() {
@@ -906,69 +991,44 @@
             });
         }
         
+        function sendInvitationsUrl(eventId) {
+            return `${inviteesJsonBase}/${eventId}/invitation/send`;
+        }
+        
         // Update the selected invitees count
         function updateSelectedCount() {
             document.getElementById('selected-count').textContent = selectedInvitees.size;
-            
-            // Enable/disable send button based on selection
-            document.getElementById('send-invitations-btn').disabled = selectedInvitees.size === 0;
+            updateCostSummary();
         }
         
         // Calculate and update the cost summary
         function updateCostSummary() {
             const selectedCount = selectedInvitees.size;
-            const invitationMethod = document.querySelector('input[name="invitationMethod"]:checked').value;
-            
-            let whatsappCount = 0;
-            let smsCount = 0;
-            
-            if (invitationMethod === 'auto') {
-                // Auto-detect: use WhatsApp if available, otherwise SMS
-                invitees.forEach(invitee => {
-                    if (selectedInvitees.has(invitee.id)) {
-                        if (invitee.hasWhatsApp) {
-                            whatsappCount++;
-                        } else {
-                            smsCount++;
-                        }
-                    }
-                });
-            } else if (invitationMethod === 'whatsapp') {
-                // WhatsApp only
-                whatsappCount = selectedCount;
-            } else if (invitationMethod === 'sms') {
-                // SMS only
-                smsCount = selectedCount;
-            }
-            
-            const baseCost = selectedCount * invitationCost;
-            const serviceFee = baseCost * serviceFeeRate;
-            const totalCost = baseCost + serviceFee;
-            
-            // Update cost display
+            const totalCost = selectedCount * invitationCost;
+            const remaining = walletBalance - totalCost;
+
             document.getElementById('cost-invitee-count').textContent = selectedCount;
-            document.getElementById('cost-whatsapp').textContent = `$${(whatsappCount * invitationCost).toFixed(2)}`;
-            document.getElementById('cost-sms').textContent = `$${(smsCount * invitationCost).toFixed(2)}`;
-            document.getElementById('cost-service').textContent = `$${serviceFee.toFixed(2)}`;
-            document.getElementById('cost-total').textContent = `$${totalCost.toFixed(2)}`;
-            
-            // Update payment status
+            document.getElementById('cost-total').textContent = formatTsh(totalCost);
+            document.getElementById('cost-remaining').textContent = formatTsh(Math.max(0, remaining));
+            const modeEl = document.getElementById('cost-delivery-method');
+            if (modeEl) modeEl.textContent = deliveryModeLabel(selectedDeliveryMode());
+
             const paymentStatus = document.getElementById('payment-status');
+            const sendBtn = document.getElementById('send-invitations-btn');
+
             if (selectedCount === 0) {
                 paymentStatus.textContent = 'Pending';
                 paymentStatus.className = 'badge bg-secondary';
+                sendBtn.disabled = true;
+            } else if (remaining < 0) {
+                paymentStatus.textContent = 'Insufficient';
+                paymentStatus.className = 'badge bg-danger';
+                sendBtn.disabled = true;
             } else {
                 paymentStatus.textContent = 'Ready';
                 paymentStatus.className = 'badge bg-primary';
+                sendBtn.disabled = false;
             }
-        }
-        
-        // Calculate total cost for payment
-        function calculateTotalCost() {
-            const selectedCount = selectedInvitees.size;
-            const baseCost = selectedCount * invitationCost;
-            const serviceFee = baseCost * serviceFeeRate;
-            return baseCost + serviceFee;
         }
         
         // User role detection (for demo purposes)

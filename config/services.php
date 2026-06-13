@@ -31,4 +31,29 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    ],
+
+    'nextsms' => [
+        'base_url' => env('NEXTSMS_BASE_URL', 'https://api.nextsms.co.tz'),
+        'username' => env('NEXTSMS_USERNAME'),
+        'password' => env('NEXTSMS_PASSWORD'),
+        'api_key' => env('NEXTSMS_API_KEY'),
+        'sender_id' => env('NEXTSMS_SENDER_ID', 'NEXTSMS'),
+    ],
+
+    'whatsapp' => [
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
+        // Approved template for business-initiated invitations (image header + body param).
+        'template_name' => env('WHATSAPP_TEMPLATE_NAME'),
+        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
+        'template_body_param' => filter_var(env('WHATSAPP_TEMPLATE_BODY_PARAM', true), FILTER_VALIDATE_BOOLEAN),
+    ],
+
 ];

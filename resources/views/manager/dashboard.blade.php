@@ -207,7 +207,12 @@
                     <li class="nav-item"><a class="nav-link" href="#" id="fundsNav"><i class="fas fa-coins"></i> Disbursements</a></li>
                     <li class="nav-item"><a class="nav-link" href="#"><i class="fas fa-chart-line"></i> Analytics</a></li>
                     <li class="nav-item mt-4"><hr class="bg-secondary opacity-25"></li>
-                    <li class="nav-item"><a class="nav-link text-danger" href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+
+                    <form action="{{ route('logout') }}" method="POST">
+                        @csrf
+                        @method('POST')
+                        <li class="nav-item"><button type="submit" class="btn btn-outline-danger"><i class="fas fa-sign-out-alt"></i> Logout</button></li>
+                    </form>
                 </ul>
             </div>
         </div>

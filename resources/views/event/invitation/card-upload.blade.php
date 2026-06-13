@@ -523,7 +523,7 @@
                             <h6 class="m-0 font-weight-bold text-primary">Your invitation card (PDF)</h6>
                         </div>
                         <div class="card-body">
-                            <p class="text-muted small mb-3">Create your invitation in Word, Canva, or any design tool, export as PDF, then upload it here. All artwork and text come from your file—nothing is generated from built-in templates.</p>
+                            <p class="text-muted small mb-3">Create your invitation in Word, Canva, or any design tool, export as PDF, then upload it here. When you save, page 1 is converted to a PNG image for WhatsApp delivery.</p>
                             <div class="row">
                                 <div class="col-lg-6">
                                     <div class="upload-area" id="pdf-upload-area">
@@ -1598,6 +1598,38 @@ function navigateToStep(stepNumber) {
 }
 
 // Save design to backend
+async function exportTemplateImageFromPdf() {
+    if (!designConfig.pdfFile) return null;
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const typedarray = new Uint8Array(await designConfig.pdfFile.arrayBuffer());
+    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+    const page = await pdf.getPage(1);
+
+    // High-resolution raster for WhatsApp / SMS image delivery
+    const scale = 2.5;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+        canvasContext: canvas.getContext('2d'),
+        viewport: viewport
+    }).promise;
+
+    return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                resolve(null);
+                return;
+            }
+            resolve(new File([blob], 'invitation-template.png', { type: 'image/png' }));
+        }, 'image/png', 0.92);
+    });
+}
+
 async function saveDesign() {
     const designName = document.getElementById('design-name').value.trim();
 
@@ -1620,10 +1652,17 @@ async function saveDesign() {
 
     const saveBtn = document.getElementById('save-design-btn');
     const originalText = saveBtn.innerHTML;
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Converting PDF to image…';
     saveBtn.disabled = true;
 
     try {
+        const templateImageFile = await exportTemplateImageFromPdf();
+        if (!templateImageFile) {
+            throw new Error('Could not convert PDF to image. Try another PDF file.');
+        }
+
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+
         const formData = new FormData();
         formData.append('event_id', designConfig.eventId);
         formData.append('design_name', designName);
@@ -1637,6 +1676,7 @@ async function saveDesign() {
         formData.append('qr_layout[ny]', designConfig.qrLayoutNorm.ny);
         formData.append('qr_layout[nw]', designConfig.qrLayoutNorm.nw);
         formData.append('pdf_file', designConfig.pdfFile);
+        formData.append('template_image', templateImageFile);
         formData.append('_token', getCsrfToken());
         
         // Make API call to save design

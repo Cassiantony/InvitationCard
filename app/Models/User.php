@@ -49,6 +49,7 @@ class User extends Authenticatable
         'role',
         'password',
         'viewer_for_user_id',
+        'wallet_balance',
     ];
 
     /**
@@ -69,6 +70,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'last_seen_at' => 'datetime',
+        'wallet_balance' => 'integer',
     ];
 
     public function normalizedRole(): string
@@ -145,6 +147,23 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function invitationDeliveries()
+    {
+        return $this->hasMany(InvitationDelivery::class);
+    }
+
+    public function formattedWalletBalance(): string
+    {
+        return 'Tsh '.number_format((int) $this->wallet_balance);
+    }
+
+    public function canAffordInvitations(int $count): bool
+    {
+        $cost = $count * (int) config('invitation.cost_per_card_tsh', 500);
+
+        return (int) $this->wallet_balance >= $cost;
+    }
+
     /**
      * Whether this user may look up / check in this invitee (QR scan at the door).
      */
@@ -217,5 +236,10 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    public function walletTopups(): HasMany
+    {
+        return $this->hasMany(WalletTopup::class);
     }
 }

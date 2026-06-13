@@ -76,5 +76,23 @@ class Invitee extends Model
         return $query->whereNotNull('checked_in_at');
     }
 
+    public function rsvpLabel(): string
+    {
+        return match ($this->status) {
+            'confirmed' => 'Attending',
+            'declined' => 'Not attending',
+            default => 'No response',
+        };
+    }
+
+    public function rsvpBadgeClass(): string
+    {
+        return match ($this->status) {
+            'confirmed' => 'bg-success',
+            'declined' => 'bg-danger',
+            default => 'bg-secondary',
+        };
+    }
+
     
 }

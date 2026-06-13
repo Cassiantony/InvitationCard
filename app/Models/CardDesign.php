@@ -17,6 +17,7 @@ class CardDesign extends Model
         'design_type', // 'template' or 'pdf'
         'template_name', // for template designs
         'pdf_file_path', // for PDF designs
+        'template_image_path', // PNG raster of page 1 (for WhatsApp/image send)
         'qr_position_x',
         'qr_position_y',
         'qr_size',
